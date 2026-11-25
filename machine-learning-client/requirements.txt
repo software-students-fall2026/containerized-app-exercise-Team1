@@ -1,5 +1,6 @@
 flask
 pymongo
-mediapipe==0.10.21
+mediapipe==0.10.18
 numpy==1.26.4
 Pillow==11.1.0
+opencv-python-headless

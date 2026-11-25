@@ -44,6 +44,15 @@ class Fruit {
         this.x += this.vx;
         this.y += this.vy;
         this.vy += this.gravity;
+
+        if(this.x - this.radius < 0){
+            this.x - this.radius;
+            this.vx = Math.abs(this.vx);
+        }
+        else if(this.x + this.radius > canvas.width){
+            this.x = canvas.width - this.radius;
+            this.vx = -Math.abs(this.vx)
+        }
     }
 
     draw() {

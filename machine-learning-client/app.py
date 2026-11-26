@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "in progress"
+    return "ML Client in running"
 
 @app.route("/track", methods=["POST"])
 def track():

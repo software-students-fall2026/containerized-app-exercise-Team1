@@ -10,7 +10,7 @@ def download():
     with urlopen(MODEL_URL, timeout=60) as response:
         temp.write_bytes(response.read())
     temp.replace(target)
-    print("Downloaded to {target}")
+    print(f"Downloaded to {target}")
 
 if __name__ == "__main__":
     download()

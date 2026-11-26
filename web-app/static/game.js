@@ -16,14 +16,25 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-canvas.addEventListener("mousedown", () => isSlicing = true);
-canvas.addEventListener("mouseup", () => isSlicing = false);
-canvas.addEventListener("mouseleave", () => isSlicing = false);
-canvas.addEventListener("mousemove", (e) => {
-    if (isSlicing) {
-        bladeTrail.push({x: e.clientX, y: e.clientY});
-    }
-});
+//changing controls based on game mode gesture or manual(used to test the game before add gesture)
+
+if(GAME_MODE === "manual"){
+    canvas.addEventListener("mousedown", () => isSlicing = true);
+    canvas.addEventListener("mouseup", () => isSlicing = false);
+    canvas.addEventListener("mouseleave", () => isSlicing = false);
+    canvas.addEventListener("mousemove", (e) => {
+        if (isSlicing) {
+            bladeTrail.push({x: e.clientX, y: e.clientY});
+        }
+    });
+}
+//gesture control
+else if (GAME_MODE === "gesture") {
+    const video = document.getElementById("webcam");
+    const hiddenCanvas = document.getElementById("hiddenCanvas");
+    const hiddenCtx = hiddenCanvas.getContext("2d")
+}
+
 
 class Fruit {
     constructor() {

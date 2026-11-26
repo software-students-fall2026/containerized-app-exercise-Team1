@@ -1,6 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const scoreVal = document.getElementById("scoreVal");
+const statusText = document.getElementById("statusText")
 
 let score = 0;
 let fruits = [];
@@ -16,14 +17,97 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-canvas.addEventListener("mousedown", () => isSlicing = true);
-canvas.addEventListener("mouseup", () => isSlicing = false);
-canvas.addEventListener("mouseleave", () => isSlicing = false);
-canvas.addEventListener("mousemove", (e) => {
-    if (isSlicing) {
-        bladeTrail.push({x: e.clientX, y: e.clientY});
+//changing controls based on game mode gesture or manual(used to test the game before add gesture)
+
+if(GAME_MODE === "manual"){
+    canvas.addEventListener("mousedown", () => isSlicing = true);
+    canvas.addEventListener("mouseup", () => isSlicing = false);
+    canvas.addEventListener("mouseleave", () => isSlicing = false);
+    canvas.addEventListener("mousemove", (e) => {
+        if (isSlicing) {
+            bladeTrail.push({x: e.clientX, y: e.clientY});
+        }
+    });
+}
+//gesture control
+else if (GAME_MODE === "gesture") {
+    const video = document.getElementById("webcam");
+    const hiddenCanvas = document.getElementById("hiddenCanvas");
+    const hiddenCtx = hiddenCanvas.getContext("2d");
+
+    hiddenCanvas.width = 320;
+    hiddenCanvas.height = 240;
+
+    async function startCamera() {
+        try{
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true});
+        
+        video.srcObject = stream;
+        statusText.innerText = "slice using your index finger"
+        setInterval(sendFrameToML, 100);
+        }catch (err) {
+            statusText.innerText = "camera unaccessable";
+        }
     }
-});
+
+    let frameId = 0;
+    const sessionId = "session_" + Date.now();
+    let isSendingFrame = false;
+
+    async function sendFrameToML() {
+        if (video.readyState !== video.HAVE_ENOUGH_DATA){
+            return;
+        }
+        if (isSendingFrame){
+            return;
+        }
+
+        isSendingFrame = true;
+
+        hiddenCtx.drawImage(video, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+        
+        hiddenCanvas.toBlob(async (blob) => {
+            if (!blob){
+                isSendingFrame=false;
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("frame", blob, "frame.jpg");
+            formData.append("frame_id", frameId++);
+            formData.append("session_id", sessionId);
+
+            try{
+                const response = await fetch('/api/track',{
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.found){
+                    isSlicing=true;
+                    statusText.innerText=`Tracking! (${data.inference_ms}ms)`;
+
+                    bladeTrail.push({
+                        x: data.x * canvas.width,
+                        y: data.y * canvas.height
+                    });
+                }
+                else{
+                    isSlicing=false;
+                    statusText.innerText = "show your hand";
+                }
+            } catch(error){
+                console.log("ml tracker is offline");
+            }finally{
+                isSendingFrame = false;
+            }
+        }, "image/jpeg", 0.5);
+    }
+    startCamera();
+}
+
+
 
 class Fruit {
     constructor() {
@@ -46,7 +130,7 @@ class Fruit {
         this.vy += this.gravity;
 
         if(this.x - this.radius < 0){
-            this.x - this.radius;
+            this.x = this.radius;
             this.vx = Math.abs(this.vx);
         }
         else if(this.x + this.radius > canvas.width){
@@ -98,7 +182,7 @@ function gameLoop(){
         for (let i = 1; i<bladeTrail.length; i++){
             ctx.lineTo(bladeTrail[i].x, bladeTrail[i].y);
         }
-        ctx.strokeStyle = "#00ffcc";
+        ctx.strokeStyle = GAME_MODE === "gesture" ? "#00ffcc" : "#007bff";
         ctx.lineWidth = 5;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";

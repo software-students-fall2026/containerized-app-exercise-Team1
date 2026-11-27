@@ -3,15 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manual Fruit Ninja</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Fruit Ninja - {{mode|capitalize}} Mode</title>
+    <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}">
 </head>
 <body>
     <div id="ui">
         <h1>Score: <span id="scoreVal">0</span></h1>
-        <p>Click and drag your mouse to slice!</p>
+        <p id="statusText">
+            {% if mode == 'manual' %}
+                Click and drag the mouse to slice
+            {% else %}
+                Loading Camera...
+            {% endif %}
+        </p>
+
+        <a href="/" style="color: #aaa; text-decoration: none; margin-top: 10px; display: inline-block;">
+            &larr; Back to menu
+        </a>
     </div>
     <canvas id="gameCanvas"></canvas>
-    <script src="game.js"></script>
+
+    <video id="webcam" autoplay playsinline style="display: none;"></video>
+    <canvas id="hiddenCanvas" style="display: none;"></canvas>
+
+    <script>
+        const GAME_MODE = "{{ mode }}"
+    </script>
+
+    <script src="{{url_for('static', filename='game.js')}}"></script>
 </body>
 </html>

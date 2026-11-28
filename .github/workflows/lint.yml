@@ -5,6 +5,7 @@ jobs:
   lint-and-format:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         # repeat same job for each subsystem in the following subdirectories
         subdir: [web-app, machine-learning-client]

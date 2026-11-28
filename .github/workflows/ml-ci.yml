@@ -1,0 +1,29 @@
+name: ML client CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test ML client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build ML image
+        run: docker build -t ml-client:ci ./machine-learning-client
+
+      - name: Run ML tests and check coverage
+        run: |
+          docker run --rm ml-client:ci sh -ec '
+            python -m pip install --no-cache-dir -r test-requirements.txt
+            python -m coverage run --source=app,tracker,storage,download_model,check_mediapipe -m pytest -v
+            python -m coverage report -m --fail-under=80
+          '

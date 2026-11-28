@@ -1,9 +1,12 @@
+"""Check hand tracking with a blank frame or webcam."""
 import argparse
 import cv2
 import numpy as np
 from tracker import HandTracker, decode_frame
 
+
 def prepare_frame(frame):
+    """Resize and encode a camera frame for tracking."""
     height, width = frame.shape[:2]
     scale = min(640 / width, 480 / height, 1)
     frame = cv2.resize(frame, (int(width * scale), int(height * scale)))
@@ -14,6 +17,7 @@ def prepare_frame(frame):
 
 
 def main():
+    """Check detection and optionally display a webcam preview."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-camera", action="store_true")
     parser.add_argument("--camera", type=int, default=0)
@@ -54,16 +58,20 @@ def main():
             label = "found: false | No hand"
 
             if result["found"]:
-                x, y = result["x"], result["y"]
-                point = (round(x * (width - 1)), round(y * (height - 1)))
+                point = (
+                    round(result["x"] * (width - 1)),
+                    round(result["y"] * (height - 1)),
+                )
                 cv2.circle(preview, point, 10, (0, 255, 0), -1)
-                label = f"found: true | x: {x:.3f}, y: {y:.3f}"
+                label = f"found: true | x: {result['x']:.3f}, y: {result['y']:.3f}"
 
-            cv2.putText(preview, label, (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.putText(
+                preview, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2
+            )
             cv2.imshow("MediaPipe test - press Q to quit", preview)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
+
     finally:
         if camera is not None:
             camera.release()

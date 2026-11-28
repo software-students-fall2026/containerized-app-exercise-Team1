@@ -1,9 +1,11 @@
+"""Test the ML routes, tracker, storage, and camera preview."""
 import io
 import sys
-import numpy as np
-import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+
+import numpy as np
+import pytest
 from PIL import Image
 from pymongo.errors import ServerSelectionTimeoutError
 
@@ -15,6 +17,7 @@ import tracker
 
 
 def image_bytes(size=(16, 12)):
+    """Generate a blank PNG for an upload."""
     stream = io.BytesIO()
     Image.new("RGB", size).save(stream, format="PNG")
     stream.seek(0)
@@ -23,10 +26,12 @@ def image_bytes(size=(16, 12)):
 
 @pytest.fixture(name="client")
 def ml_client():
+    """Create a Flask test client."""
     return app.app.test_client()
 
 
 def test_real_blank_frame(client, monkeypatch):
+    """Check blank-frame detection and sampling at frames zero and ten."""
     saved = []
     monkeypatch.setattr(
         app, "save_tracking_result", lambda row: saved.append(row.copy())
@@ -51,6 +56,7 @@ def test_real_blank_frame(client, monkeypatch):
 
 
 def test_hand_found_through_route(client, monkeypatch):
+    """Return normalized fingertip coordinates through the tracking route."""
     tip = SimpleNamespace(x=0.3123456, y=0.75)
     landmarks = SimpleNamespace(hand_landmarks=[[None] * 8 + [tip]])
     detector = MagicMock()
@@ -65,6 +71,7 @@ def test_hand_found_through_route(client, monkeypatch):
 
 @pytest.mark.parametrize("value", [None, "abc"])
 def test_bad_frame_id(client, value):
+    """Reject missing and noninteger frame IDs."""
     fields = {"frame": (image_bytes(), "frame.png")}
     if value is not None:
         fields["frame_id"] = value
@@ -72,6 +79,7 @@ def test_bad_frame_id(client, value):
 
 
 def test_missing_and_invalid_image(client):
+    """Reject absent uploads and undecodable images."""
     assert client.post("/track", data={"frame_id": "2"}).status_code == 400
     response = client.post(
         "/track", data={"frame_id": "2", "frame": (io.BytesIO(b"bad"), "bad.jpg")}
@@ -81,6 +89,7 @@ def test_missing_and_invalid_image(client):
 
 
 def test_decode_size_and_direction():
+    """Check resizing, mirroring, and the image size limit."""
     image = Image.new("RGB", (800, 400), "red")
     image.paste("blue", (400, 0, 800, 400))
     stream = io.BytesIO()
@@ -93,6 +102,8 @@ def test_decode_size_and_direction():
 
 
 def test_database_unavailable_preserves_tracking(client, monkeypatch):
+    """Keep returning detections when a database write fails."""
+
     def unavailable(result):
         raise ServerSelectionTimeoutError("offline")
 
@@ -106,6 +117,7 @@ def test_database_unavailable_preserves_tracking(client, monkeypatch):
 
 
 def test_storage_document(monkeypatch):
+    """Insert a timestamped record in the configured database."""
     connection = MagicMock()
     monkeypatch.setattr(storage, "MongoClient", connection)
     monkeypatch.setenv("MONGO_URI", "mongodb://mongodb:27017")
@@ -130,6 +142,7 @@ def test_storage_document(monkeypatch):
 
 
 def test_download_model(tmp_path, monkeypatch):
+    """Write downloaded model bytes to the expected path."""
     monkeypatch.setattr(download_model, "__file__", str(tmp_path / "download_model.py"))
     monkeypatch.setattr(
         download_model, "urlopen", lambda url, timeout: io.BytesIO(b"model")
@@ -139,6 +152,7 @@ def test_download_model(tmp_path, monkeypatch):
 
 
 def test_camera_preview(monkeypatch):
+    """Draw a preview and release resources when the user quits."""
     device = MagicMock()
     device.read.return_value = (True, np.zeros((48, 64, 3), dtype=np.uint8))
     model = MagicMock()
@@ -160,6 +174,7 @@ def test_camera_preview(monkeypatch):
 
 
 def camera_fixture(monkeypatch, argv, detections, device=None):
+    """Configure a mock detector and camera for preview tests."""
     model = MagicMock()
     model.detect.side_effect = detections
     monkeypatch.setattr(sys, "argv", ["check_mediapipe.py", *argv])
@@ -170,12 +185,14 @@ def camera_fixture(monkeypatch, argv, detections, device=None):
 
 
 def test_prepare_frame_encode_failure(monkeypatch):
+    """Raise an error when JPEG encoding fails."""
     monkeypatch.setattr(camera.cv2, "imencode", lambda ext, frame: (False, None))
     with pytest.raises(RuntimeError, match="encode"):
         camera.prepare_frame(np.zeros((48, 64, 3), dtype=np.uint8))
 
 
 def test_camera_no_camera_flag(monkeypatch):
+    """Check a blank frame without opening a camera."""
     model = camera_fixture(
         monkeypatch, ["--no-camera"], [{"found": False, "x": None, "y": None}]
     )
@@ -184,6 +201,7 @@ def test_camera_no_camera_flag(monkeypatch):
 
 
 def test_camera_blank_image_with_hand_fails(monkeypatch):
+    """Reject a hand detection on the blank test image."""
     model = camera_fixture(
         monkeypatch, ["--no-camera"], [{"found": True, "x": 0.5, "y": 0.5}]
     )
@@ -193,6 +211,7 @@ def test_camera_blank_image_with_hand_fails(monkeypatch):
 
 
 def test_camera_cannot_open(monkeypatch):
+    """Release resources when the camera cannot open."""
     device = MagicMock()
     device.isOpened.return_value = False
     model = camera_fixture(
@@ -205,6 +224,7 @@ def test_camera_cannot_open(monkeypatch):
 
 
 def test_camera_no_frame(monkeypatch):
+    """Release resources when the camera returns no frame."""
     device = MagicMock()
     device.read.return_value = (False, None)
     model = camera_fixture(
@@ -217,6 +237,7 @@ def test_camera_no_frame(monkeypatch):
 
 
 def test_real_tracker_video_timestamps_and_close():
+    """Exercise the real tracker with increasing video timestamps."""
     hand_tracker = tracker.HandTracker()
     blank = np.zeros((48, 64, 3), dtype=np.uint8)
     try:
